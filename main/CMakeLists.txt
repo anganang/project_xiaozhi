@@ -1,0 +1,25 @@
+idf_component_register(SRCS
+                     "main.c"
+                    "./Button/xiaozhi_button.c"
+                    "./wifi_sta/xiaozhi_wifi.c"
+                    "./lvgl/xiaozhi_lvgl.c"
+                    "./xiaozhi_lcd/xiaozhi_lcd.c"
+                    "./pretty_effect/pretty_effect.c"
+                    "./decode_image/decode_image.c"
+                    "./http/xiaozhi_http.c"
+                    "./xiaozhi_data/xiaozhi_data.c"
+                    "./Aud/xiaozhi_audio.c"
+                    "./Aud/xiaozhi_sr.c"
+                INCLUDE_DIRS 
+                    "."
+                    "./Button"
+                    "./wifi_sta"
+                    "./lvgl"
+                    "./xiaozhi_lcd"
+                    "./pretty_effect"
+                    "./decode_image"
+                    "./http"
+                    "./xiaozhi_data"
+                    "./Aud"
+                    EMBED_FILES image.jpg
+    )

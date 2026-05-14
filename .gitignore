@@ -1,0 +1,30 @@
+# ESP-IDF build output
+build/
+build_*/
+
+# ESP-IDF managed dependencies
+managed_components/
+
+# Local SDK/config backups
+sdkconfig.old
+sdkconfig.*.old
+
+# Editor and tool caches
+.vscode/
+.idea/
+.cache/
+.clangd/index/
+.claude/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
