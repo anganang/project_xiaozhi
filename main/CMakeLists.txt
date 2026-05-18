@@ -10,6 +10,9 @@ idf_component_register(SRCS
                     "./xiaozhi_data/xiaozhi_data.c"
                     "./Aud/xiaozhi_audio.c"
                     "./Aud/xiaozhi_sr.c"
+                    "./Aud/xiaozhi_encoder.c"
+                    "./Aud/xiaozhi_deocoder.c"
+                    "./http/xiaozhi_ws.c"
                 INCLUDE_DIRS 
                     "."
                     "./Button"

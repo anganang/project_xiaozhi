@@ -21,3 +21,5 @@ dependencies:
   78/xiaozhi-fonts: ^1.6.0
   espressif/esp_codec_dev: ^1.5.9
   espressif/esp-sr: ^2.4.4
+  espressif/esp_audio_codec: ^2.5.0
+  espressif/esp_websocket_client: ^1.7.0

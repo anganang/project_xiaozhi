@@ -8,6 +8,7 @@ esp_codec_dev_handle_t codec_dev;
 
 static i2c_master_bus_handle_t i2c_bus_handle;
 
+// 初始化 ES8311 音频设备：建立 I2C/I2S、创建 codec 句柄，并设置采样率、音量和录音增益。
 void xiaozhi_audio_Init(void)
 {
     xiaozhi_audio_i2c_init();
@@ -53,6 +54,7 @@ void xiaozhi_audio_Init(void)
     esp_codec_dev_set_in_gain(codec_dev, 15.0);
 }
 
+// 初始化 ESP32-S3 到 ES8311 的 I2C 控制总线，用于配置 codec 寄存器。
 void xiaozhi_audio_i2c_init(void)
 {
     i2c_master_bus_config_t i2c_bus_config = {0};
@@ -67,6 +69,7 @@ void xiaozhi_audio_i2c_init(void)
     i2c_new_master_bus(&i2c_bus_config, &i2c_bus_handle);
 }
 
+// 初始化 I2S 收发通道，用于麦克风 PCM 采集和扬声器 PCM 播放。
 void xiaozhi_audio_i2s_init(void)
 {
 
@@ -96,11 +99,13 @@ void xiaozhi_audio_i2s_init(void)
     /////////////////////////////////////////////////////////////
 }
 
+// 向 ES8311 写入 PCM 数据，最终从扬声器播放。
 void xiaozhi_audio_write(void *data, size_t len)
 {
     esp_codec_dev_write(codec_dev, data, len);
 }
 
+// 从 ES8311 读取 PCM 数据，供 SR 和 encoder 使用。
 void xiaozhi_audio_read(void *data, size_t len)
 {
     esp_codec_dev_read(codec_dev, data, len);

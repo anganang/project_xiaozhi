@@ -85,6 +85,16 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 2.4.4
+  espressif/esp_audio_codec:
+    component_hash: 16e2880dbdd5a72264051f750f33a6e5a38fd25621c83e3a32a85a152d2d2643
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.4'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 2.5.0
   espressif/esp_codec_dev:
     component_hash: 9293329ccb361f67c6e847ab8f693b2d9158b2e438eff583c28558c29cdf3dca
     dependencies:
@@ -119,6 +129,16 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 2.7.2
+  espressif/esp_websocket_client:
+    component_hash: 3fb288702517ef4d75bf933a115f1056ee0c2540d964f9e1d856e0bb67e1dfeb
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.7.0
   espressif/qrcode:
     component_hash: 31e70991ce22f28d73a4386417fc9c0993f61e1aab1832474fd9e3db8da9dcbd
     dependencies: []
@@ -141,11 +161,13 @@ direct_dependencies:
 - 78/xiaozhi-fonts
 - espressif/button
 - espressif/esp-sr
+- espressif/esp_audio_codec
 - espressif/esp_codec_dev
 - espressif/esp_jpeg
 - espressif/esp_lvgl_port
+- espressif/esp_websocket_client
 - espressif/qrcode
 - idf
-manifest_hash: a903eaa45acdfddccd8bf14e1f08f2f5a62824ad2d049db4dc0054cc82332e2c
+manifest_hash: eaa0952d12ab2a776385d075fce0548f5790de579128bdd19fff7ae3833cf461
 target: esp32s3
 version: 2.0.0

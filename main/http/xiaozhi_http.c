@@ -14,7 +14,6 @@ esp_http_client_handle_t client;
 
 static void xiaozhi_http_set_client(void);
 
-// [FIXED] 函数签名增加 json_str 参数
 void xiaozhi_http_json(const char *json_str);
 
 /**
@@ -45,7 +44,7 @@ static void uuid_v4_generate(char *uuid_str)
 }
 
 /**
- * [CLAUDE_OPT] HTTP 事件回调函数
+ * HTTP 事件回调函数
  *
  * 事件触发顺序（一次完整的 HTTP 请求）:
  *   1. HTTP_EVENT_ON_CONNECTED  — TCP/TLS 连接建立
@@ -159,7 +158,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-// [CLAUDE_OPT] 仅初始化 client，不立即 perform。应在 set_client() 设置完 header 后再调用 perform
+// 初始化 HTTP OTA 客户端：设置服务器地址、请求头并发起一次 OTA/激活信息请求。
 void xiaozhi_http_client_init(void)
 {
     esp_http_client_config_t config =
@@ -196,6 +195,7 @@ void xiaozhi_http_client_init(void)
     }
 }
 
+// 设置小智 OTA 接口需要的请求头，包括语言、User-Agent、Client-Id 和 Device-Id。
 static void xiaozhi_http_set_client(void)
 {
     esp_http_client_set_header(client, "Accept-Language", "zh-CN");
@@ -215,7 +215,7 @@ static void xiaozhi_http_set_client(void)
     esp_http_client_set_header(client, "Device-Id", mac_ptr);
 }
 
-// [FIXED] 修复野指针问题：root 需要从 JSON 字符串解析得到；cJSON_GetObjectItem 返回 cJSON* 不是 char*
+// 解析 OTA 返回的 JSON：保存 WebSocket 地址/token，更新激活状态和屏幕提示。
 void xiaozhi_http_json(const char *json_str)
 {
     cJSON *root = cJSON_Parse(json_str);
@@ -274,7 +274,7 @@ void xiaozhi_http_json(const char *json_str)
 
         xiaozhi_lvgl_set_title("PLASE GO TO ACTIVE");
         xiaozhi_lvgl_set_emoji("pain");
-        char dialog_info[12];
+        char dialog_info[32];
         snprintf(dialog_info, sizeof(dialog_info), "code:%s", xiaozhi_data.code);
         xiaozhi_lvgl_set_dialog(dialog_info);
 
@@ -285,9 +285,9 @@ void xiaozhi_http_json(const char *json_str)
         xiaozhi_data.is_active = true;
         ESP_LOGI(TAG, "device already activated");
 
-        xiaozhi_lvgl_set_title("You suck!");
-        xiaozhi_lvgl_set_emoji("ToT");
-        xiaozhi_lvgl_set_dialog("Go fuck youself!");
+        xiaozhi_lvgl_set_title("AI XiaoZhi");
+        xiaozhi_lvgl_set_emoji("happy");
+        xiaozhi_lvgl_set_dialog("你好,我是小智");
     }
 
     cJSON_Delete(root);

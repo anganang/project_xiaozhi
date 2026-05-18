@@ -2,6 +2,8 @@
 #define __XIAOZHI_DATA_H__
 #include "stdbool.h"
 #include "esp_afe_sr_models.h"
+#include "freertos/ringbuf.h"
+#include "freertos/event_groups.h"
 
 typedef struct
 {
@@ -18,6 +20,22 @@ typedef struct
     vad_state_t vad_last_state;    // SR语音检测到上一状态
     void (*vad_cb)(void);          // SR语音检测模块:检测说话->静默,静默->说话状态发
 
+    // 缓冲区:SR->扔原始数据,编码器从缓冲区去原始数据
+    RingbufHandle_t sr_encoder_handler;
+
+    // 缓冲区:编码器ENCODER->WEBSOCKET客户端使用缓冲区
+    RingbufHandle_t encoder_websocket_handler;
+
+    // 缓冲区:websocket与解码器使用缓冲区->今天目前没有webscoket客户端模块
+    RingbufHandle_t websocket_decoder_handler;
+
+    // 服务器返回文本和音频时由 websocket 模块回调给 main 处理
+    void (*text_cb)(char *text, uint32_t len);
+    void (*audio_cb)(uint8_t *data, size_t len);
+
+    // websocket 握手流程使用的事件组
+    EventGroupHandle_t event_flag_group;
+
 } xiaozhi_data_t;
 
 typedef struct
@@ -29,5 +47,8 @@ typedef struct
 // [CLAUDE_OPT] extern 声明需要带变量名，这样其他 .c 文件 include 此头文件即可访问该全局变量
 extern xiaozhi_data_t xiaozhi_data;
 extern EMOJI xiaozhi_emoji[24];
+
+#define CONNECT_BIT (1 << 0)
+#define HELLO_BIT (1 << 1)
 
 #endif /* __XIAOZHI_DATA_H__ */

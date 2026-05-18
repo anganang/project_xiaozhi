@@ -8,18 +8,19 @@
 static esp_afe_sr_iface_t *afe_handle = NULL;
 esp_afe_sr_data_t *afe_data = NULL;
 
-// 测试小智是否被激活回调
+// 测试唤醒回调：当前只打印日志，正式唤醒流程由 main 注册的 wakeup_cb 接管。
 void xiaozhi_wakeup_cb(void)
 {
     ESP_LOGE(TAG_RC, "xiaozhi has been activated");
 }
 
-// 测试小智的语音状态是否发生变化
+// VAD 状态变化回调：当前只打印日志，用于观察说话/静默状态切换。
 void xiaozhi_status_cb(void)
 {
     ESP_LOGE(TAG_RC, "xiaozhi's condition has changed");
 }
 
+// AFE 喂数据任务：持续从 ES8311 读取 PCM，并送入 ESP-SR 前端做唤醒词和 VAD 检测。
 void feed_Task(void *arg)
 {
     // 获取每次数据的采样点
@@ -36,7 +37,7 @@ void feed_Task(void *arg)
     }
 }
 
-// 检测任务
+// AFE 检测任务：读取唤醒词/VAD 结果，唤醒后把用户说话的 PCM 推给 encoder。
 void detect_Task(void *arg)
 {
 
@@ -46,7 +47,6 @@ void detect_Task(void *arg)
         afe_fetch_result_t *result = afe_handle->fetch(afe_data);
         // 检测是否有唤醒词
         wakenet_state_t wakeup_state = result->wakeup_state;
-        vad_state_t vad_state = result->vad_state;
 
         if (wakeup_state == WAKENET_DETECTED)
         {
@@ -58,9 +58,31 @@ void detect_Task(void *arg)
                 xiaozhi_data.wakeup_cb();
             }
         }
+
+        if (xiaozhi_data.is_wakeup)
+        {
+            xiaozhi_data.vad_current_state = result->vad_state;
+            if (xiaozhi_data.vad_current_state != xiaozhi_data.vad_last_state && xiaozhi_data.vad_cb != NULL)
+            {
+                xiaozhi_data.vad_cb();
+            }
+            xiaozhi_data.vad_last_state = xiaozhi_data.vad_current_state;
+        }
+
+        if (xiaozhi_data.is_wakeup && xiaozhi_data.vad_current_state == VAD_SPEECH)
+        {
+            // vad_cache 是唤醒前后 AFE 缓存的语音片段，先送给 encoder 防止开头丢字。
+            if (result->vad_cache_size > 0)
+            {
+                xRingbufferSend(xiaozhi_data.sr_encoder_handler, result->vad_cache, result->vad_cache_size, pdMS_TO_TICKS(5000));
+            }
+
+            xRingbufferSend(xiaozhi_data.sr_encoder_handler, result->data, result->data_size, pdMS_TO_TICKS(5000));
+        }
     }
 }
 
+// 初始化 ESP-SR：加载 model 分区里的唤醒模型，创建 AFE，并启动 feed/detect 两个任务。
 void xiaozhi_sr_init(void)
 {
     // 用es8311获取音频数据
@@ -88,8 +110,6 @@ void xiaozhi_sr_init(void)
     afe_data = afe_handle->create_from_config(afe_config);
     afe_config_free(afe_config);
 
-    // 测试代码，观察小智是否被唤醒
-    xiaozhi_data.wakeup_cb = xiaozhi_wakeup_cb;
     xiaozhi_data.vad_cb = xiaozhi_status_cb;
 
     xTaskCreatePinnedToCoreWithCaps(feed_Task, "feed", 8 * 1024, NULL, 5, NULL, 0, MALLOC_CAP_SPIRAM);
