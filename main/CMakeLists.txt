@@ -11,7 +11,7 @@ idf_component_register(SRCS
                     "./Aud/xiaozhi_audio.c"
                     "./Aud/xiaozhi_sr.c"
                     "./Aud/xiaozhi_encoder.c"
-                    "./Aud/xiaozhi_deocoder.c"
+                    "./Aud/xiaozhi_decoder.c"
                     "./http/xiaozhi_ws.c"
                 INCLUDE_DIRS 
                     "."
