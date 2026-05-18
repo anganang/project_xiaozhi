@@ -28,6 +28,8 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
         xEventGroupSetBits(xiaozhi_data.event_flag_group, CONNECT_BIT);
         break;
     case WEBSOCKET_EVENT_DISCONNECTED:
+        xiaozhi_data.server_state = SERVER_STATE_IDLE;
+        xiaozhi_data.is_wakeup = false;
         ESP_LOGI(TAG, "websocket disconnected");
         break;
     case WEBSOCKET_EVENT_DATA:
@@ -62,6 +64,8 @@ void xiaozhi_ws_init(void)
         .uri = xiaozhi_data.websocket_url,
         .transport = WEBSOCKET_TRANSPORT_OVER_SSL,
         .crt_bundle_attach = esp_crt_bundle_attach,
+        .reconnect_timeout_ms = 5000,
+        .network_timeout_ms = 5000,
     };
 
     websocket_client = esp_websocket_client_init(&websocket_cfg);
@@ -99,7 +103,7 @@ void xiaozhi_ws_send_text(char *text)
         return;
     }
 
-    esp_websocket_client_send_text(websocket_client, text, strlen(text), portMAX_DELAY);
+    esp_websocket_client_send_text(websocket_client, text, strlen(text), pdMS_TO_TICKS(5000));
 }
 
 // 通过 WebSocket 发送 OPUS 二进制音频帧，供服务器做 ASR/LLM/TTS 处理。
@@ -110,7 +114,7 @@ void xiaozhi_ws_send_opus(uint8_t *data, size_t len)
         return;
     }
 
-    esp_websocket_client_send_bin(websocket_client, (const char *)data, len, portMAX_DELAY);
+    esp_websocket_client_send_bin(websocket_client, (const char *)data, len, pdMS_TO_TICKS(5000));
 }
 
 // 唤醒后执行 WebSocket 对话准备流程：连接服务器、发送 hello，收到 hello 应答后发送 listen。

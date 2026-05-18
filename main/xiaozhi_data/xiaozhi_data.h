@@ -5,6 +5,14 @@
 #include "freertos/ringbuf.h"
 #include "freertos/event_groups.h"
 
+// 小智服务器状态：用于区分空闲、正在听用户说话、服务器正在播报，避免音频链路互相打架。
+typedef enum
+{
+    SERVER_STATE_IDLE = 0,
+    SERVER_STATE_SPEECH,
+    SERVER_STATE_LISTEN,
+} server_state_t;
+
 typedef struct
 {
     char *websocket_url; // 存储websocket通信协议地址
@@ -35,6 +43,9 @@ typedef struct
 
     // websocket 握手流程使用的事件组
     EventGroupHandle_t event_flag_group;
+
+    // 当前服务器交互状态，决定是否发送用户音频、是否允许打断服务器播报。
+    server_state_t server_state;
 
 } xiaozhi_data_t;
 

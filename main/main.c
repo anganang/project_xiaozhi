@@ -22,6 +22,7 @@ static void create_buffer(void);
 static void parse_server_text(char *text, uint32_t len);
 static void parse_server_audio(uint8_t *data, size_t len);
 static void wakeup_cb(void);
+static void vad_cb(void);
 static void websocket_send_task(void *arg);
 
 // 程序入口：初始化 UI、音频、WiFi、HTTP、WebSocket、SR、编解码任务，并把各模块缓冲区接起来。
@@ -31,6 +32,8 @@ void app_main(void)
     xiaozhi_data.text_cb = parse_server_text;
     xiaozhi_data.audio_cb = parse_server_audio;
     xiaozhi_data.wakeup_cb = wakeup_cb;
+    xiaozhi_data.vad_cb = vad_cb;
+    xiaozhi_data.server_state = SERVER_STATE_IDLE;
 
     xiaozhi_button_Init();
     xiaozhi_button2_cb(BUTTON_SINGLE_CLICK, xiaozhi_callback, (void *)1);
@@ -88,7 +91,7 @@ static void create_buffer(void)
     xiaozhi_data.websocket_decoder_handler = xRingbufferCreateWithCaps(64 * 1024, RINGBUF_TYPE_NOSPLIT, MALLOC_CAP_SPIRAM);
 }
 
-// 处理服务器返回的 JSON 文本消息，目前主要识别 hello 应答并释放 WebSocket 握手等待。
+// 处理服务器返回的 JSON 文本消息：推进 hello 握手、更新 TTS 文本/状态，并刷新 LLM 表情。
 static void parse_server_text(char *text, uint32_t len)
 {
     char *json_text = heap_caps_malloc(len + 1, MALLOC_CAP_SPIRAM);
@@ -113,6 +116,36 @@ static void parse_server_text(char *text, uint32_t len)
     {
         xEventGroupSetBits(xiaozhi_data.event_flag_group, HELLO_BIT);
     }
+    else if (cJSON_IsString(type) && strcmp(type->valuestring, "tts") == 0)
+    {
+        cJSON *state = cJSON_GetObjectItem(root, "state");
+        if (cJSON_IsString(state) && strcmp(state->valuestring, "sentence_start") == 0)
+        {
+            cJSON *dialog_text = cJSON_GetObjectItem(root, "text");
+            if (cJSON_IsString(dialog_text))
+            {
+                xiaozhi_lvgl_set_dialog(dialog_text->valuestring);
+            }
+        }
+        else if (cJSON_IsString(state) && strcmp(state->valuestring, "start") == 0)
+        {
+            xiaozhi_data.server_state = SERVER_STATE_SPEECH;
+            xiaozhi_lvgl_set_title("说话中....");
+        }
+        else if (cJSON_IsString(state) && strcmp(state->valuestring, "stop") == 0)
+        {
+            xiaozhi_data.server_state = SERVER_STATE_IDLE;
+            xiaozhi_lvgl_set_title("AI XiaoZhi");
+        }
+    }
+    else if (cJSON_IsString(type) && strcmp(type->valuestring, "llm") == 0)
+    {
+        cJSON *emotion = cJSON_GetObjectItem(root, "emotion");
+        if (cJSON_IsString(emotion))
+        {
+            xiaozhi_lvgl_set_emoji(emotion->valuestring);
+        }
+    }
 
     cJSON_Delete(root);
     free(json_text);
@@ -129,13 +162,44 @@ static void parse_server_audio(uint8_t *data, size_t len)
     xRingbufferSend(xiaozhi_data.websocket_decoder_handler, data, len, portMAX_DELAY);
 }
 
-// SR 检测到唤醒词后的回调：启动 WebSocket 连接并发送 hello/listen 消息。
+// SR 检测到唤醒词后的回调：空闲时启动对话，服务器播报时先 abort 再重新进入唤醒对话。
 static void wakeup_cb(void)
 {
-    xiaozhi_ws_check_wakeup();
+    if (xiaozhi_data.server_state == SERVER_STATE_IDLE)
+    {
+        xiaozhi_ws_check_wakeup();
+    }
+    else if (xiaozhi_data.server_state == SERVER_STATE_SPEECH)
+    {
+        xiaozhi_ws_send_text("{\"type\":\"abort\",\"reason\":\"wake_word_detected\"}");
+        xiaozhi_ws_send_text("{\"type\":\"listen\",\"state\":\"detect\",\"text\":\"你好小智\"}");
+    }
 }
 
-// WebSocket 发送任务：持续取 encoder 输出的 OPUS 帧，并通过 WebSocket 二进制帧发给服务器。
+// VAD 状态变化回调：用户开始说话时通知服务器 start，静默时通知服务器 stop。
+static void vad_cb(void)
+{
+    if (xiaozhi_data.vad_current_state == VAD_SPEECH)
+    {
+        if (xiaozhi_data.server_state == SERVER_STATE_IDLE)
+        {
+            xiaozhi_ws_send_text("{\"type\":\"listen\",\"state\":\"start\",\"mode\":\"manual\"}");
+            xiaozhi_data.server_state = SERVER_STATE_LISTEN;
+            xiaozhi_lvgl_set_title("聆听中....");
+        }
+    }
+    else if (xiaozhi_data.vad_current_state == VAD_SILENCE)
+    {
+        if (xiaozhi_data.server_state != SERVER_STATE_SPEECH)
+        {
+            xiaozhi_ws_send_text("{\"type\":\"listen\",\"state\":\"stop\"}");
+            xiaozhi_data.server_state = SERVER_STATE_IDLE;
+            xiaozhi_lvgl_set_title("AI XiaoZhi");
+        }
+    }
+}
+
+// WebSocket 发送任务：持续取 encoder 输出的 OPUS 帧，只在服务器处于 LISTEN 状态时发送。
 static void websocket_send_task(void *arg)
 {
     while (1)
@@ -144,7 +208,10 @@ static void websocket_send_task(void *arg)
         void *opus_data = xRingbufferReceive(xiaozhi_data.encoder_websocket_handler, &len, portMAX_DELAY);
         if (opus_data != NULL)
         {
-            xiaozhi_ws_send_opus(opus_data, len);
+            if (xiaozhi_data.server_state == SERVER_STATE_LISTEN)
+            {
+                xiaozhi_ws_send_opus(opus_data, len);
+            }
             vRingbufferReturnItem(xiaozhi_data.encoder_websocket_handler, opus_data);
         }
     }

@@ -103,14 +103,20 @@ void xiaozhi_sr_init(void)
     afe_config->vad_min_noise_ms = 1000; // 噪声或静默的最小持续时间（以毫秒为单位）。
     afe_config->vad_min_speech_ms = 128; // 语音的最小时长（以毫秒为单位）。
     afe_config->vad_mode = VAD_MODE_3;   // 众数越大，语音触发概率就越高。
+    // 当前硬件没有做扬声器回采，先关闭 AEC/SE/NS，减少无效处理带来的误判和内存占用。
+    afe_config->aec_init = false;
+    afe_config->se_init = false;
+    afe_config->ns_init = false;
+    afe_config->wakenet_init = true;
+    afe_config->wakenet_mode = DET_MODE_90;
+    afe_config->afe_ringbuf_size = 4 * 1024;
+    afe_config->memory_alloc_mode = AFE_MEMORY_ALLOC_MORE_PSRAM;
 
     // 初始化语音识别框架
     afe_handle = esp_afe_handle_from_config(afe_config);
     //
     afe_data = afe_handle->create_from_config(afe_config);
     afe_config_free(afe_config);
-
-    xiaozhi_data.vad_cb = xiaozhi_status_cb;
 
     xTaskCreatePinnedToCoreWithCaps(feed_Task, "feed", 8 * 1024, NULL, 5, NULL, 0, MALLOC_CAP_SPIRAM);
     xTaskCreatePinnedToCoreWithCaps(detect_Task, "detect", 4 * 1024, NULL, 5, NULL, 1, MALLOC_CAP_SPIRAM);
